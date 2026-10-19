@@ -12,7 +12,7 @@ import { ServerConnection } from "@/runtime/server/registry"
 import { useServerSDK } from "@/runtime/server/client"
 import { useTabs } from "@/shell/tabs/tabs"
 import { displayName } from "@opencode/ui/project-avatar"
-import { resolveProjectForSession } from "@/shell/layout/helpers"
+import { projectForSession } from "@/shell/layout/helpers"
 import { useExtensionHost } from "@/runtime/extension/host"
 import { useExtensionAttachment } from "@/runtime/extension/host-apis"
 import { looksLikeSessionID } from "@/session/search"
@@ -142,8 +142,7 @@ export function createCommandPaletteModel(props: { filesOnly?: () => boolean; on
 
   const sessions = createServerSessionEntries({
     server: ServerConnection.key(serverSDK.server),
-    opened: serverCtx.projects.list,
-    stored: () => serverCtx.sync.data.project,
+    projects: serverCtx.projects.list,
     load: (search, signal) => serverSDK.api.session.list({ parentID: null, search, limit: 50 }, { signal }),
     get: (sessionID, signal) => serverSDK.api.session.get({ sessionID }, { signal }),
     untitled: () => language.t("command.session.new"),
@@ -175,10 +174,7 @@ export function createCommandPaletteModel(props: { filesOnly?: () => boolean; on
       if (!item.sessionID || !item.server) return
       const directory = item.project?.worktree ?? item.directory
 
-      if (directory) {
-        serverCtx.projects.open(directory)
-        serverCtx.projects.touch(directory)
-      }
+      if (directory) serverCtx.projects.touch(directory)
 
       const tab = appTabs.addSessionTab({
         server: item.server,
@@ -227,8 +223,7 @@ export function createCommandPaletteCommandEntry(option: CommandOption, category
 
 export function createServerSessionEntries(props: {
   server: ServerConnection.Key
-  opened: () => LocalProject[]
-  stored: () => Project[]
+  projects: () => Project[]
   load: (search: string, signal: AbortSignal) => Promise<{ data: SessionInfo[] }>
   get: (sessionID: string, signal: AbortSignal) => Promise<SessionInfo>
   untitled: () => string
@@ -260,8 +255,7 @@ export function createServerSessionEntries(props: {
     })
 
     if (current.signal.aborted) return []
-    const opened = props.opened()
-    const stored = props.stored().map((project) => ({ ...project, expanded: false }))
+    const projects = props.projects()
     const category = search ? props.category() : props.recentCategory()
 
     const entries = await Promise.all([
@@ -280,7 +274,7 @@ export function createServerSessionEntries(props: {
         (session) => {
           if (session.time.archived) return []
 
-          const project = resolveProjectForSession(session, opened, stored)
+          const project = projectForSession(session, projects)
 
           return [
             {

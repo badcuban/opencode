@@ -804,7 +804,7 @@ test.describe("background shortcut", () => {
     await expectBackgroundRequest(page)
   })
 
-  for (const name of ["read", "shell", "subagent"] as const) {
+  for (const name of ["read", "shell"] as const) {
     test(`keeps Working and the shortcut for a grouped running ${name}`, async ({ page }) => {
       await setupTimeline(page, {
         viewport: { width: name === "shell" ? 390 : 1400, height: 900 },
@@ -818,11 +818,7 @@ test.describe("background shortcut", () => {
                 "prt_grouped_active",
                 name,
                 "running",
-                {
-                  read: { filePath: "src/working.ts" },
-                  shell: { command: "sleep 10" },
-                  subagent: { agent: "general", description: "Inspect the timeline", prompt: "Inspect it." },
-                }[name],
+                { read: { filePath: "src/working.ts" }, shell: { command: "sleep 10" } }[name],
               ),
             ],
             { completed: false },
@@ -835,24 +831,20 @@ test.describe("background shortcut", () => {
       await expect(trigger).toHaveAttribute("aria-expanded", "false")
       await expect(working).toBeInViewport()
 
-      if (name !== "read") {
+      if (name === "shell") {
         await expect(backgroundHint(page)).toBeInViewport()
         await expect(page.locator('[data-component="session-background-hint-row"]')).toHaveCSS("height", "24px")
       }
 
       await trigger.click()
       await expect(trigger).toHaveAttribute("aria-expanded", "true")
-
-      if (name === "subagent") await expect(group.getByText("Inspect the timeline", { exact: true })).toBeVisible()
-
-      if (name !== "subagent")
-        await expect(group.locator('[data-component="text-shimmer"][data-active="true"]')).toBeVisible()
+      await expect(group.locator('[data-component="text-shimmer"][data-active="true"]')).toBeVisible()
       await expect(working).toBeVisible()
       await trigger.click()
       await expect(trigger).toHaveAttribute("aria-expanded", "false")
       await expect(working).toBeVisible()
 
-      if (name !== "read") await expectBackgroundRequest(page)
+      if (name === "shell") await expectBackgroundRequest(page)
     })
   }
 
@@ -949,20 +941,26 @@ test.describe("background shortcut", () => {
       },
     })
     const backgroundCard = page.locator('[data-timeline-part-id="call_backgrounded"]')
+    const blockingCard = page.locator('[data-timeline-part-id="call_blocking"]')
     await expect(backgroundHint(page)).toBeVisible()
+    await expect(backgroundCard).toContainText("Background task (background)")
+    await expect(blockingCard).toContainText("Foreground task")
+    await expect(blockingCard).not.toContainText("(background)")
 
     const used = page
-      .locator('[data-timeline-part-ids="call_backgrounded,call_shell_backgrounded,call_blocking"]')
+      .locator('[data-timeline-part-ids="call_shell_backgrounded"]')
       .locator(':scope > [data-component="collapsible"] > [data-slot="collapsible-trigger"]')
 
-    await expect(used).toHaveText(/^Used\s*3\s*Agent, Shell$/)
+    await expect(used).toHaveText(/^Used\s*1\s*Shell$/)
     await expect(used).toHaveAttribute("aria-expanded", "false")
-    await page.getByRole("button", { name: "3 running", exact: true }).click()
-    const list = page.getByRole("menu", { name: "3 running", exact: true })
+    const activity = page.getByRole("button", { name: "2 subagents · 1 shell", exact: true })
+    const list = page.getByRole("menu", { name: "2 subagents · 1 shell", exact: true })
+
+    await activity.click()
     await expect(list.getByRole("menuitem")).toHaveText([
       /^Build\s*Foreground task$/,
       /^Explore\s*Background task$/,
-      /^Shell\s*sleep 120$/,
+      /^sleep 120$/,
     ])
     await list.getByRole("menuitem", { name: /sleep 120/ }).click()
     await expect(list).toHaveCount(0)
@@ -971,7 +969,7 @@ test.describe("background shortcut", () => {
     await expect(shellCall.locator('[data-slot="collapsible-trigger"]')).toHaveAttribute("aria-expanded", "true")
     await expect(shellCall).toBeInViewport()
 
-    await page.getByRole("button", { name: "3 running", exact: true }).click()
+    await activity.click()
 
     const interrupt = page.waitForRequest(
       (request) =>
@@ -1083,9 +1081,9 @@ test.describe("background shortcut", () => {
         fixture.after ? page.getByText(`Follow-up note ${fixture.after}.`, { exact: true }) : group,
       ).toBeInViewport()
       await expect(shellTrigger).toHaveCount(0)
-      await page.getByRole("button", { name: "1 running", exact: true }).click()
+      await page.getByRole("button", { name: "1 shell", exact: true }).click()
       await page
-        .getByRole("menu", { name: "1 running", exact: true })
+        .getByRole("menu", { name: "1 shell", exact: true })
         .getByRole("menuitem", { name: /sleep 120/ })
         .click()
 
@@ -1105,7 +1103,7 @@ test.describe("background shortcut", () => {
     })
   }
 
-  test("hides the running switcher when viewing the only running subagent", async ({ page }) => {
+  test("shows a running subagent's working indicator beside its title", async ({ page }) => {
     const childID = "ses_only_running_child"
 
     const timeline = await setupTimeline(page, {
@@ -1118,13 +1116,11 @@ test.describe("background shortcut", () => {
     })
 
     const header = page.locator("[data-session-title]")
-    const trigger = header.getByRole("button", { name: "1 working", exact: true })
 
-    await trigger.click()
+    await page.getByRole("button", { name: "1 subagent", exact: true }).click()
     await page.getByRole("menuitem", { name: /Only running task/ }).click()
     await expect(page).toHaveURL(new RegExp(`/session/${childID}$`))
     await expect(header.getByRole("heading")).toHaveText("Only running task")
-    await expect(trigger).toHaveCount(0)
 
     const working = header.getByRole("status", { name: "Working", exact: true })
 
@@ -1140,7 +1136,7 @@ test.describe("background shortcut", () => {
 
     expect(gap).toBe(8)
 
-    const title = header.getByRole("heading").locator('span[dir="auto"]')
+    const title = header.getByRole("heading")
     const before = await title.boundingBox()
     const exit = await pauseExitAnimations(working)
 
@@ -1162,243 +1158,6 @@ test.describe("background shortcut", () => {
     await exit.dispose()
     await header.locator('[data-slot="session-title-parent"]').click()
     await expect(page).toHaveURL(new RegExp(`/session/${sessionID}$`))
-    await expect(trigger).toHaveCount(0)
-  })
-
-  test("keeps the running menu closed when work restarts after all subagents finish", async ({ page }) => {
-    const childID = "ses_restarted_child"
-    const otherID = "ses_counted_child"
-
-    const timeline = await setupTimeline(page, {
-      sessionMessages: [user, completed],
-      sessions: [
-        session(),
-        session({ id: childID, parentID: sessionID, title: "Restarted task", agent: "explore" }),
-        session({ id: otherID, parentID: sessionID, title: "Other task", agent: "build" }),
-      ],
-      sessionStatus: {},
-    })
-
-    const trigger = page.locator("[data-session-title]").getByRole("button", { name: /^[12] working$/ })
-    const menu = page.getByRole("menu", { name: "1 working", exact: true })
-
-    await timeline.transport.send(status("busy", 1, childID))
-    await expect(trigger).toHaveAccessibleName("1 working")
-    await timeline.transport.send(status("busy", 1, otherID))
-    await expect(trigger).toHaveAccessibleName("2 working")
-    await expect(trigger.locator("..")).toHaveCSS("animation-name", "none")
-    await timeline.transport.send(status("idle", 1, otherID))
-    await expect(trigger).toHaveAccessibleName("1 working")
-    // Inspect the update itself, not the settled state after a replayed fade finishes.
-    expect(await trigger.evaluate((element) => getComputedStyle(element.parentElement!).animationName)).toBe("none")
-
-    await trigger.click()
-    await expect(menu.getByRole("menuitem", { name: /Restarted task/ })).toBeVisible()
-    await timeline.transport.send(status("idle", 1, childID))
-    await expect(trigger).toHaveCount(0)
-    await expect(menu).toHaveCount(0)
-    await timeline.transport.send(status("busy", 1, childID))
-    await expect(trigger).toBeEnabled()
-    await expect(trigger).toHaveAttribute("aria-expanded", "false")
-    await expect(menu).toHaveCount(0)
-    await trigger.click()
-    await expect(menu.getByRole("menuitem", { name: /Restarted task/ })).toBeVisible()
-  })
-
-  test("keeps the subagent title anchored when its additional count disappears", async ({ page }) => {
-    const childID = "ses_collapsing_viewed"
-    const otherID = "ses_collapsing_sibling"
-
-    const timeline = await setupTimeline(page, {
-      sessionMessages: [user, completed],
-      sessions: [
-        session(),
-        session({ id: childID, parentID: sessionID, title: "Viewed task", agent: "explore" }),
-        session({ id: otherID, parentID: sessionID, title: "Other task", agent: "build" }),
-      ],
-      sessionStatus: { [childID]: { type: "busy" }, [otherID]: { type: "busy" } },
-    })
-
-    const header = page.locator("[data-session-title]")
-    await header.getByRole("button", { name: "2 working", exact: true }).click()
-    await page.getByRole("menuitem", { name: /Viewed task/ }).click()
-    await expect(header.getByRole("heading")).toHaveAccessibleName("Viewed task")
-
-    const trigger = header.getByRole("button", { name: "Viewed task +1 working", exact: true })
-    const title = header.getByRole("heading").locator('span[dir="auto"]')
-
-    await expect(trigger).toBeEnabled()
-
-    const before = await title.boundingBox()
-    const exit = await pauseExitAnimations(trigger.locator('[data-component="text-shimmer"]').locator(".."))
-
-    await timeline.transport.send(status("idle", 1, otherID))
-    await expect.poll(() => exit.evaluate((animations) => animations.length)).toBeGreaterThan(0)
-    await exit.evaluate((animations) => animations.forEach((animation) => (animation.currentTime = 75)))
-
-    const midway = await title.boundingBox()
-
-    expect(midway!.x).toBeCloseTo(before!.x, 0)
-    await exit.evaluate((animations) => animations.forEach((animation) => animation.finish()))
-    await expect(trigger).toHaveCount(0)
-
-    const after = await title.boundingBox()
-
-    expect(after!.x).toBeCloseTo(before!.x, 0)
-    await expect(header.getByRole("button", { name: "Viewed task", exact: true })).toBeDisabled()
-    await exit.dispose()
-  })
-
-  test("moves between siblings and to the parent's shell from inside a subagent", async ({ page }) => {
-    const siblings = [
-      { id: "ses_sibling_one", agent: "explore", description: "Draft TUI proposal" },
-      { id: "ses_sibling_two", agent: "build", description: "Fix context controls" },
-    ]
-
-    const timeline = await setupTimeline(page, {
-      settings: { timelineDetail: detailed },
-      sessionMessages: [
-        user,
-        {
-          id: "msg_sibling_shell",
-          type: "assistant",
-          agent: "build",
-          model: { id: "model", providerID: "provider" },
-          content: [
-            {
-              type: "tool",
-              id: "call_sibling_shell",
-              name: "shell",
-              state: {
-                status: "completed",
-                input: { command: "sleep 120" },
-                content: [{ type: "text", text: "working" }],
-                metadata: { shellID: "shell_sibling", status: "running" },
-              },
-              time: { created: 2, completed: 3 },
-            },
-          ],
-          time: { created: 2, completed: 3 },
-        },
-        {
-          id: "msg_siblings",
-          type: "assistant",
-          agent: "build",
-          model: { id: "model", providerID: "provider" },
-          content: siblings.map((item) => ({
-            type: "tool" as const,
-            id: `call_${item.id}`,
-            name: "subagent",
-            state: {
-              status: "running" as const,
-              input: { description: item.description, agent: item.agent },
-              metadata: { sessionID: item.id },
-            },
-            time: { created: 2 },
-          })),
-          time: { created: 2 },
-        },
-      ],
-      sessions: [
-        session(),
-        ...siblings.map((item) =>
-          session({ id: item.id, parentID: sessionID, title: item.description, agent: item.agent }),
-        ),
-      ],
-      sessionStatus: Object.fromEntries(
-        [sessionID, ...siblings.map((item) => item.id)].map((id) => [id, { type: "busy" }]),
-      ),
-    })
-
-    await timeline.transport.send({
-      id: "evt_sibling_shell_created",
-      created: 3,
-      type: "shell.created",
-      location: { directory },
-      data: {
-        info: {
-          id: "shell_sibling",
-          status: "running",
-          command: "sleep 120",
-          cwd: directory,
-          shell: "bash",
-          file: "/tmp/sibling.out",
-          metadata: { sessionID },
-          time: { started: 2 },
-        },
-      },
-    })
-
-    const header = page.locator("[data-session-title]")
-    const trigger = header.getByRole("button", { name: /(?:^3 running$|\+2 running$)/ })
-    const list = page.getByRole("menu", { name: /(?:^3 running$|\+2 running$)/ })
-
-    await trigger.click()
-    await list.getByRole("menuitem", { name: /Draft TUI proposal/ }).click()
-    await expect(page).toHaveURL(/\/session\/ses_sibling_one$/)
-    await expect(list).toHaveCount(0)
-    await expect(header.getByRole("heading")).toHaveAccessibleName("Draft TUI proposal")
-    await expect(trigger.locator('[data-component="text-shimmer"]')).toHaveCSS("font-variant-numeric", "tabular-nums")
-
-    const countGap = await trigger.evaluate((element) => {
-      const title = document.createRange()
-
-      title.selectNodeContents(element.querySelector('span[dir="auto"]')!)
-
-      return (
-        element.querySelector('[data-component="text-shimmer"]')!.getBoundingClientRect().left -
-        title.getBoundingClientRect().right
-      )
-    })
-
-    expect(countGap).toBe(8)
-
-    const breadcrumbOrder = await header
-      .locator('[data-slot="session-title-parent"], [data-slot="session-title-child"]')
-      .evaluateAll((elements) => elements.map((element) => element.getAttribute("data-slot")))
-
-    expect(breadcrumbOrder).toEqual(["session-title-parent", "session-title-child"])
-    await expect(header.locator('[data-slot="session-title-separator"]')).toHaveCount(1)
-    await expect(header.getByRole("heading").getByRole("button", { name: "Draft TUI proposal +2 running" })).toBeEnabled()
-
-    await trigger.click()
-    await expect(list.getByRole("menuitem")).toHaveText([
-      /^Explore\s*Draft TUI proposal/,
-      /^Build\s*Fix context controls/,
-      /^Shell\s*sleep 120/,
-    ])
-    await expect(list.getByRole("menuitem", { name: /Draft TUI proposal/ })).toHaveAttribute("aria-current", "page")
-    await expect(list.getByRole("menuitem", { name: /Fix context controls/ })).not.toHaveAttribute("aria-current")
-
-    const requested = Promise.withResolvers<void>()
-    const release = Promise.withResolvers<void>()
-
-    await page.route(
-      (url) => url.pathname === "/api/session/ses_sibling_two/message",
-      async (route) => {
-        requested.resolve()
-        await release.promise
-        await route.fallback()
-      },
-    )
-    await list.getByRole("menuitem", { name: /Fix context controls/ }).click()
-    await requested.promise
-    await Promise.all([
-      expect(page).toHaveURL(/\/session\/ses_sibling_two$/),
-      expect(header.getByRole("heading")).toHaveAccessibleName("Fix context controls"),
-      expect(trigger).toBeEnabled(),
-    ]).finally(() => release.resolve())
-    await expect(list).toHaveCount(0)
-
-    // The shell call lives in the parent: the row opens it there, expanded.
-    await trigger.click()
-    await list.getByRole("menuitem", { name: /sleep 120/ }).click()
-    await expect(page).toHaveURL(new RegExp(`/session/${sessionID}$`))
-
-    const shellCall = page.locator('[data-timeline-part-id="call_sibling_shell"]')
-
-    await expect(shellCall.locator('[data-slot="collapsible-trigger"]')).toHaveAttribute("aria-expanded", "true")
-    await expect(shellCall).toBeInViewport()
   })
 })
 

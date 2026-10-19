@@ -138,15 +138,11 @@ export function SettingsScreen() {
 
   const connection = (key: string) => servers().find((item) => item.key === key)
 
-  const project = (server: ServerConnection.Any, directory: string) => {
-    const context = global.ensureServerCtx(server)
-
-    const value =
-      context.projects.list().find((item) => item.worktree === directory) ??
-      context.sync.data.project.find((item) => item.worktree === directory)
-
-    return value ? { expanded: false, ...value } : undefined
-  }
+  const project = (server: ServerConnection.Any, directory: string) =>
+    global
+      .ensureServerCtx(server)
+      .projects.list()
+      .find((item) => item.worktree === directory)
 
   const targetServer = createMemo(() => {
     const view = surface.view()
@@ -563,7 +559,6 @@ function ProjectSettings(props: { server: ServerConnection.Any; project: LocalPr
               server={props.server}
               project={props.project}
               onOpenServer={() => surface.replaceServer(ServerConnection.key(props.server))}
-              onClose={() => surface.back()}
             />
           </Tabs.Content>
           <Tabs.Content value="workspaces" class="settings-panel">

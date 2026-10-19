@@ -222,7 +222,6 @@ export const dict = {
   "provider.connect.toast.connected.title": "{{provider}} connected",
   "provider.connect.toast.connected.description": "{{provider}} models are now available to use.",
 
-
   "provider.disconnect.toast.disconnected.title": "{{provider}} disconnected",
   "provider.disconnect.toast.disconnected.description": "{{provider}} models are no longer available.",
   "provider.disconnect.toast.noCredentials.description": "No removable credentials found for {{provider}}",
@@ -537,14 +536,6 @@ export const dict = {
   "session.queue.attachments.one": "{{count}} attachment",
   "session.queue.attachments.other": "{{count}} attachments",
   "session.timeline.working": "Working",
-  "session.running.working.one": "{{count}} working",
-  "session.running.working.other": "{{count}} working",
-  "session.running.running.one": "{{count}} running",
-  "session.running.running.other": "{{count}} running",
-  "session.running.additionalWorking.one": "+{{count}} working",
-  "session.running.additionalWorking.other": "+{{count}} working",
-  "session.running.additionalRunning.one": "+{{count}} running",
-  "session.running.additionalRunning.other": "+{{count}} running",
   "session.running.stop.subagent": "Interrupt subagent",
   "session.running.stop.shell": "Kill shell command",
 
@@ -907,6 +898,9 @@ export const dict = {
   "settings.general.sounds.permissions.description": "Play sound when a permission is required",
   "settings.general.sounds.errors.title": "Errors",
   "settings.general.sounds.errors.description": "Play sound when an error occurs",
+  "settings.general.sounds.interface.title": "Interface",
+  "settings.general.sounds.interface.description":
+    "Play subtle sounds when the wordmark appears and when you play with it",
 
   "settings.shortcuts.title": "Keyboard shortcuts",
   "settings.shortcuts.reset.button": "Reset to defaults",

@@ -30,11 +30,7 @@ async function open(page: Page, input: { count?: number; seed?: SeedInput } = {}
     project: { icon: { color: "orange" } },
     provider: NO_PROVIDER,
     projects,
-    seed: {
-      tabs: [],
-      ...(projects ? { projects: { local: projects.map((item) => ({ worktree: item.worktree })) } } : {}),
-      ...input.seed,
-    },
+    seed: { tabs: [], ...input.seed },
   })
 
   const view = {
@@ -348,10 +344,6 @@ test("multi-server results navigate to the named server and keep the query on re
   const view = await open(page, {
     seed: {
       servers: [{ url: REMOTE_SERVER, name: "Build server" }],
-      projects: {
-        local: [{ worktree: directory, expanded: true }],
-        [REMOTE_SERVER]: [{ worktree: "/remote/opencode", expanded: true }],
-      },
     },
   })
 

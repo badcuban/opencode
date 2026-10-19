@@ -383,7 +383,7 @@ export function Titlebar(props: { verticalTabs?: { mount?: HTMLElement } }) {
 
                   const project =
                     projects?.list().find((item) => item.worktree === selection.directory) ??
-                    projects?.list().find((item) => item.worktree === projects.last()) ??
+                    projects?.last() ??
                     projects?.list()[0]
 
                   if (conn && project) {

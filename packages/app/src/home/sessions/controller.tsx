@@ -166,7 +166,6 @@ export function createHomeSessionsController(home: HomeController) {
               const sessionID = entry.sessionID
               const server = entry.server
               const directory = entry.project?.worktree ?? entry.directory
-              ctx.projects.open(directory)
               ctx.projects.touch(directory)
               void startTransition(() => {
                 const tab = tabs.addSessionTab({ server, sessionId: sessionID })
@@ -353,7 +352,6 @@ export function createHomeSessionsController(home: HomeController) {
 
           if (!options?.background) tabs.select(tab)
           ctx.data.session.remember(session)
-          ctx.projects.open(directory)
 
           if (!options?.background) ctx.projects.touch(directory)
         })

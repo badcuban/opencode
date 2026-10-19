@@ -23,7 +23,7 @@ export type WorkspaceInput = Partial<Omit<MockServerConfig, "directory" | "proje
   project?: Record<string, unknown>
   // Defaults to one session titled `name`. Omitted fields come from `session()`.
   sessions?: ({ id: string; title?: string } & Record<string, unknown>)[]
-  // Merged over the default seed: the project expanded and last opened, and a tab for every session.
+  // Merged over the default seed: the project used before, and a tab for every session.
   seed?: SeedInput
 }
 
@@ -47,8 +47,7 @@ export async function mockWorkspace(page: Page, input: WorkspaceInput) {
   })
 
   await seed(page, {
-    projects: { local: [{ worktree: directory, expanded: true }] },
-    lastProject: { local: directory },
+    usedProjects: { local: [projectID] },
     tabs: sessions.map((item) => item.id),
     ...input.seed,
   })

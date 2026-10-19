@@ -1,4 +1,5 @@
 import { Icon } from "@opencode/ui/icon"
+import { IconButton } from "@opencode/ui/icon-button"
 import { Menu } from "@opencode/ui/menu"
 import { For, Index, Show } from "solid-js"
 import { useLanguage } from "@/runtime/i18n/language"
@@ -18,11 +19,50 @@ export function SessionActivityChips(props: {
   subagents: readonly SessionActivityItem[]
   shells: readonly SessionActivityItem[]
   onOpen: (item: SessionActivityItem) => void
+  onStop: (item: SessionActivityItem) => void
 }) {
   const language = useLanguage()
 
   // With one kind running, the capsule row already names it.
   const both = () => props.subagents.length > 0 && props.shells.length > 0
+
+  // A subagent can only be interrupted once its child session exists.
+  const stoppable = (item: SessionActivityItem) => item.type === "shell" || !!item.sessionID
+
+  const row = (item: SessionActivityItem) => ({
+    "data-stoppable": stoppable(item) || undefined,
+    onSelect: () => props.onOpen(item),
+    onKeyDown: (event: KeyboardEvent) => {
+      if ((event.key !== "Delete" && event.key !== "Backspace") || !stoppable(item)) return
+
+      event.preventDefault()
+      props.onStop(item)
+    },
+  })
+
+  const stop = (item: SessionActivityItem) => (
+    <Show when={stoppable(item)}>
+      {/* The row selects on press, so the stop button keeps its pointer events to itself. */}
+      <IconButton
+        type="button"
+        size="small"
+        variant="ghost-muted"
+        tabIndex={-1}
+        data-slot="session-activity-stop"
+        icon={<Icon name="outline-xmark" />}
+        aria-label={language.t(item.type === "shell" ? "session.running.stop.shell" : "session.running.stop.subagent")}
+        onPointerDown={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+        }}
+        onPointerUp={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation()
+          props.onStop(item)
+        }}
+      />
+    </Show>
+  )
 
   const label = () => language.activitySummary({ subagents: props.subagents.length, shells: props.shells.length })
 
@@ -48,16 +88,21 @@ export function SessionActivityChips(props: {
                   </Show>
                   <For each={props.subagents}>
                     {(item) => (
-                      <Menu.Item onSelect={() => props.onOpen(item)}>
+                      <Menu.Item {...row(item)}>
                         <SessionActivityGlyph class="text-v2-icon-icon-muted" />
                         <span class="shrink-0 font-[530]">
                           {item.agent
                             ? `${item.agent[0].toUpperCase()}${item.agent.slice(1)}`
                             : language.t("ui.tool.agent.default")}
                         </span>
-                        <span dir="auto" class="me-1.5 min-w-0 flex-1 truncate text-v2-text-text-muted">
+                        <span
+                          dir="auto"
+                          class="min-w-0 flex-1 truncate text-v2-text-text-muted"
+                          classList={{ "me-1.5": !stoppable(item) }}
+                        >
                           {item.label}
                         </span>
+                        {stop(item)}
                       </Menu.Item>
                     )}
                   </For>
@@ -73,14 +118,12 @@ export function SessionActivityChips(props: {
                   </Show>
                   <For each={props.shells}>
                     {(item) => (
-                      <Menu.Item onSelect={() => props.onOpen(item)}>
+                      <Menu.Item {...row(item)}>
                         <Icon name="console" class="shrink-0 text-v2-icon-icon-muted" />
-                        <span
-                          dir="ltr"
-                          class="me-1.5 min-w-0 flex-1 truncate font-mono text-[12px] text-v2-text-text-base"
-                        >
+                        <span dir="ltr" class="min-w-0 flex-1 truncate font-mono text-[12px] text-v2-text-text-base">
                           {item.label}
                         </span>
+                        {stop(item)}
                       </Menu.Item>
                     )}
                   </For>

@@ -59,6 +59,8 @@ export function createSessionTimelineInteraction(session: SessionModel) {
   // The active timeline's navigation, registered by its virtualizer.
   let revealMessage = (_id: string, _partID?: string) => {}
 
+  let revealPart = (_target: string) => false
+
   let scrollToEnd = (_behavior?: ScrollBehavior) => {}
 
   let scrollMark = 0
@@ -362,6 +364,7 @@ export function createSessionTimelineInteraction(session: SessionModel) {
     actions: {
       navigateMessage,
       revealMessage: (id: string, partID?: string) => revealMessage(id, partID),
+      revealPart: (target: string) => revealPart(target),
       resume,
       setActiveMessage,
     },
@@ -388,6 +391,9 @@ export function createSessionTimelineInteraction(session: SessionModel) {
       },
       setRevealMessage: (reveal: (id: string, partID?: string) => void) => {
         revealMessage = reveal
+      },
+      setRevealPart: (reveal: (target: string) => boolean) => {
+        revealPart = reveal
       },
       // The tool call the route opened the session on, revealed once per history entry.
       reveal: {

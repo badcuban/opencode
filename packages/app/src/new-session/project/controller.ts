@@ -1,6 +1,6 @@
 import { createMemo } from "solid-js"
 import { useDirectoryPicker } from "@/workspaces/selection/picker"
-import { useGlobal, useServerCtx } from "@/runtime/server/runtime"
+import { type ServerCtx, useGlobal, useServerCtx } from "@/runtime/server/runtime"
 import { useServerSDK } from "@/runtime/server/client"
 import { serverName, ServerConnection, useServers } from "@/runtime/server/registry"
 import { useWorkspaceLocation } from "@/workspaces/location"
@@ -18,16 +18,21 @@ export function createComposerProjectControls(props: { draftId: string; worktree
   const projectServer = () => serverSDK.server
   const projectServerCtx = useServerCtx(projectServer)
 
+  // Every server project, one per directory: the ones this client has used first, then the rest, each by recency.
+  const ordered = (ctx: ServerCtx) => {
+    const used = ctx.projects.used()
+    const ids = new Set(used.map((project) => project.id))
+
+    return [...used, ...ctx.projects.unique().filter((project) => !ids.has(project.id))]
+  }
+
   const projects = createMemo(() => {
-    if (servers.list.length <= 1) return projectServerCtx().projects.list()
+    if (servers.list.length <= 1) return ordered(projectServerCtx())
 
     return servers.list.flatMap((connection) => {
       const server = { key: ServerConnection.key(connection), name: serverName(connection) }
 
-      return global
-        .ensureServerCtx(connection)
-        .projects.list()
-        .map((project) => ({ ...project, server }))
+      return ordered(global.ensureServerCtx(connection)).map((project) => ({ ...project, server }))
     })
   })
 
@@ -38,9 +43,7 @@ export function createComposerProjectControls(props: { draftId: string; worktree
 
     if (!connection) return
 
-    const target = global.ensureServerCtx(connection)
-    target.projects.open(directory)
-    target.projects.touch(directory)
+    global.ensureServerCtx(connection).projects.touch(directory)
     tabs.updateDraft(props.draftId, {
       server: ServerConnection.key(connection),
       directory,
@@ -62,7 +65,9 @@ export function createComposerProjectControls(props: { draftId: string; worktree
       onSelect: (result) => {
         const directory = Array.isArray(result) ? result[0] : result
 
-        if (directory) selectProject(directory, serverKey)
+        if (!directory) return
+        void global.ensureServerCtx(connection).projects.add(directory)
+        selectProject(directory, serverKey)
       },
     })
   }

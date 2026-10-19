@@ -751,8 +751,6 @@ test("inactive tabs load attention and inbox, but read the transcript only on se
     }),
   })
   await seed(page, {
-    projects: { local: [{ worktree: fixture.directory, expanded: true }] },
-    lastProject: { local: fixture.directory },
     tabs: [fixture.sourceID, fixture.targetID, fixture.childID],
   })
 
@@ -824,7 +822,6 @@ test("five loaded workspace tabs stay rendered and reactive through repeated swi
 
   // Each worktree session resolves to its own location in the shared project (the mock echoes the requested one).
   await seed(page, {
-    projects: { local: [{ worktree: fixture.directory, expanded: true }] },
     tabs: sessions.map((item) => item.id),
   })
   await page.goto(sessionHref(sessions[0]!.id))

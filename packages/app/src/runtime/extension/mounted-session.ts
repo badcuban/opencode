@@ -155,14 +155,11 @@ export function createMountedSession(session: SessionModel) {
     const directory = input.directory
     const info = () => server.ctx.data.session.get(id)
 
-    // Global sync adds the worktrees found on disk, and the user's local name and icon override the server's.
-    // Raw metadata stands in until global sync lists the project.
+    // Global sync adds the worktrees found on disk. Raw metadata stands in until global sync lists the project.
     const project = createMemo(() => {
       const value = info()
 
-      return (
-        (value && server.ctx.projects.detailsForSession(value)) || sessionProject(server.ctx.data, value, directory)
-      )
+      return (value && server.ctx.projects.forSession(value)) || sessionProject(server.ctx.data, value, directory)
     })
 
     // Only a project opened at this exact directory; a session in a project subfolder has none.

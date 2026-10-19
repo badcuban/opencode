@@ -132,7 +132,7 @@ export function SessionProjectMenu(props: {
                 const project = props.project
 
                 if (!project) return
-                server.ctx.projects.open(project.worktree)
+                server.ctx.projects.touch(project.worktree)
                 layout.home.setSelection({ server: server.key, directory: project.worktree })
                 navigate("/")
               }}
@@ -310,7 +310,7 @@ export function useOpenSessionRoute() {
   }
 }
 
-export function SessionIdentityHeader(props: ParentProps<{ sessionID: string; session?: SessionInfo }>) {
+export function SessionIdentityHeader(props: { sessionID: string; session?: SessionInfo }) {
   const server = useServer()
   const tabs = useTabs()
   const language = useLanguage()
@@ -399,11 +399,8 @@ export function SessionIdentityHeader(props: ParentProps<{ sessionID: string; se
                   />
                 )}
               </Show>
-              <Show when={parentID() && props.children}>{props.children}</Show>
-              <Show when={!parentID() || !props.children}>
-                <SessionWorkingIndicator sessionID={props.sessionID} />
-              </Show>
-              <Show when={(!parentID() || !props.children) && title()}>
+              <SessionWorkingIndicator sessionID={props.sessionID} />
+              <Show when={title()}>
                 {(value) => (
                   <h1
                     data-slot={parentID() ? "session-title-child" : undefined}
@@ -415,7 +412,6 @@ export function SessionIdentityHeader(props: ParentProps<{ sessionID: string; se
                   </h1>
                 )}
               </Show>
-              <Show when={!parentID()}>{props.children}</Show>
             </div>
           </div>
         </div>

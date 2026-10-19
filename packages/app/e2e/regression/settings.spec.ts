@@ -134,19 +134,23 @@ test("single-server settings expose scoped pages without a server picker", async
   expect((await updated).postDataJSON()).toEqual({ shell: "bash" })
 })
 
-test("project list menus rename, close, edit, add, and stay inside the scrollport", async ({ page }) => {
+test("project list menus rename, edit, add, and stay inside the scrollport", async ({ page }) => {
   const projects = ["rebase", "dinocms", "opencode", "Playground"].map((name, index) =>
     project({ id: `project-${index}`, directory: `/projects/${name}`, name }),
   )
+  const added = project({ id: "project-added", directory: "/projects/added", name: "added" })
 
   const { settings } = await open(page, {
     name: "rebase",
     directory: "/projects/rebase",
     project: { id: "project-0" },
     projects,
+    // The server registers a project when it first resolves its directory.
+    onLocationGet: (directory) => {
+      if (directory === added.worktree && !projects.includes(added)) projects.push(added)
+    },
     sessions: [],
     fileList: () => [],
-    seed: { projects: { local: projects.map((item) => ({ worktree: item.worktree, expanded: true })) } },
   })
 
   await settings.getByRole("tab", { name: "Projects", exact: true }).click()
@@ -157,7 +161,7 @@ test("project list menus rename, close, edit, add, and stay inside the scrollpor
   const more = card.getByRole("button", { name: "More options", exact: true })
   await more.click()
   const menu = page.getByRole("menu")
-  await expect(menu.getByRole("menuitem")).toHaveText(["Edit", "Rename", "Clear notifications", "Close"])
+  await expect(menu.getByRole("menuitem")).toHaveText(["Edit", "Rename", "Clear notifications"])
   await menu.getByRole("menuitem", { name: "Edit", exact: true }).click()
   await expect(panel.getByRole("heading", { name: "rebase", exact: true })).toBeVisible()
   await settings.getByRole("button", { name: "Back to projects", exact: true }).click()
@@ -182,14 +186,6 @@ test("project list menus rename, close, edit, add, and stay inside the scrollpor
     .toBeGreaterThanOrEqual(4)
   await expect(panel).toHaveJSProperty("scrollWidth", await panel.evaluate((element) => element.clientWidth))
   await page.setViewportSize({ width: 1280, height: 720 })
-
-  await list
-    .getByRole("listitem")
-    .filter({ hasText: "dinocms" })
-    .getByRole("button", { name: "More options", exact: true })
-    .click()
-  await page.getByRole("menuitem", { name: "Close", exact: true }).click()
-  await expect(panel.getByRole("button", { name: "dinocms", exact: true })).toHaveCount(0)
 
   await more.click()
   await menu.getByRole("menuitem", { name: "Rename", exact: true }).click()
@@ -224,7 +220,7 @@ test("project settings open as a nested view that keeps its route", async ({ pag
   await expect(settings.getByRole("tab", { name: "Scripts", exact: true })).toHaveCount(0)
   const menu = page.getByRole("menu")
   await settings.locator(".settings-tab-header").getByRole("button", { name: "More options", exact: true }).click()
-  await expect(menu.getByRole("menuitem")).toHaveText(["Clear notifications", "Close"])
+  await expect(menu.getByRole("menuitem")).toHaveText(["Clear notifications"])
   // Escape must reach the menu, not the settings screen behind it.
   await expect.poll(() => menu.evaluate((element) => element.contains(document.activeElement))).toBe(true)
   await page.keyboard.press("Escape")

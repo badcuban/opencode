@@ -449,8 +449,6 @@ function tab(page: Page, sessionID: string) {
 async function openTabs(page: Page, input: Partial<MockServerConfig>, extra: SeedInput = {}) {
   const mock = await mockStressTimeline(page, input)
   await seed(page, {
-    projects: { local: [{ worktree: fixture.directory, expanded: true }] },
-    lastProject: { local: fixture.directory },
     tabs: [fixture.sourceID, fixture.targetID],
     ...extra,
   })

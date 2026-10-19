@@ -1,7 +1,7 @@
 import type { OpenCodeEvent, SessionMessageInfo } from "@opencode/client/promise"
 import { expect, test, type Locator, type Page } from "@playwright/test"
 import { base64Encode } from "@opencode/util/encode"
-import { SERVER, holdRoute, project, provider, session, workspaceKey } from "../utils/app"
+import { SERVER, holdRoute, project, provider, session } from "../utils/app"
 import { openFileLauncher } from "../utils/side-panel"
 import { mockOpenCodeServer } from "../utils/mock-server"
 import { fileDiff, fileNode, openSession } from "../utils/workspace"
@@ -269,19 +269,14 @@ for (const listed of [false, true]) {
       name: "BrowserRepo",
       sessions: [{ id: "ses_browserrepo", title: "BrowserRepo", directory }],
       fileList: (path) => (path ? [] : [fileNode(directory, "README.md")]),
-      seed: {
-        panes: { ses_browserrepo: { review: true } },
-        // The user also opened the subfolder as its own sidebar project and renamed it there.
-        ...(listed && {
-          projects: {
-            local: [
-              { worktree: root, expanded: true },
-              { worktree: directory, expanded: true },
-            ],
-          },
-          storage: { [workspaceKey(directory, "project")]: { value: { name: "Custom app" } } },
-        }),
-      },
+      // The server also lists the subfolder as its own project, renamed.
+      ...(listed && {
+        projects: [
+          project({ id: "proj_browserrepo", directory: root, name: "BrowserRepo" }),
+          project({ id: "proj_browserrepo_app", directory, name: "Custom app" }),
+        ],
+      }),
+      seed: { panes: { ses_browserrepo: { review: true } } },
     })
     const panel = page.locator("#review-panel")
     await openFileLauncher(panel)

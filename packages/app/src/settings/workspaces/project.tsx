@@ -27,7 +27,6 @@ export const SettingsProjectGeneral: Component<{
   project: LocalProject
   server: ServerConnection.Any
   onOpenServer: () => void
-  onClose: () => void
 }> = (props) => {
   const language = useLanguage()
   const model = createEditProjectModel(props)
@@ -59,7 +58,7 @@ export const SettingsProjectGeneral: Component<{
               </Show>
             </div>
           </div>
-          <ProjectOptions server={props.server} project={props.project} size="large" onClose={props.onClose} />
+          <ProjectOptions server={props.server} project={props.project} size="large" />
         </div>
       </div>
 

@@ -77,6 +77,7 @@ type Input = {
     disclosure: Readonly<Record<string, boolean | undefined>>,
   ) => boolean
   setRevealMessage?: (fn: (id: string, partID?: string) => void) => void
+  setRevealPart?: (fn: (target: string) => boolean) => void
   setScrollToEnd?: (fn: (behavior?: ScrollBehavior) => void) => void
   /** A tool call the route asks this timeline to open on; `done` clears it once revealed. */
   reveal?: { target: () => string | undefined; done: () => void }
@@ -512,6 +513,7 @@ export function createTimelineVirtualizer(input: Input) {
       reportOffset?.(root.scrollTop, false)
       settleColdBottom()
     })
+    input.setRevealPart?.(revealPart)
     input.setRevealMessage?.((id, partID) => {
       if (!active()) return
 
@@ -946,6 +948,7 @@ export function createTimelineVirtualizer(input: Input) {
     if (active()) {
       input.setScrollRef(undefined)
       input.setRevealMessage?.(() => {})
+      input.setRevealPart?.(() => false)
       input.setScrollToEnd?.(() => {})
     }
   })

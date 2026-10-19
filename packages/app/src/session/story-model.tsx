@@ -90,6 +90,7 @@ export type SessionPreviewProps = {
     subagents: SessionActivityItem[]
     shells: SessionActivityItem[]
     onOpen?: (item: SessionActivityItem) => void
+    onStop?: (item: SessionActivityItem) => void
   }
   timelineDetail?: TimelineDetail
 }
@@ -293,6 +294,11 @@ function SessionSurfaceState(props: SessionPreviewProps & { onReset: () => void 
                             props.activity?.onOpen
                               ? props.activity.onOpen(item)
                               : setState("activity", `Opened ${item.label ?? item.key}`)
+                          }
+                          onStop={(item) =>
+                            props.activity?.onStop
+                              ? props.activity.onStop(item)
+                              : setState("activity", `Stopped ${item.label ?? item.key}`)
                           }
                         />
                         <div class="relative z-10">

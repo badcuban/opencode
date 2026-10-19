@@ -7,7 +7,7 @@ import type { SettingsView } from "./surface"
 
 const strings = new Map(Object.entries({ ...dict, ...en }))
 
-const project = { id: "proj_opencode", name: "OpenCode", worktree: "/projects/opencode", expanded: false }
+const project = { id: "proj_opencode", name: "OpenCode", worktree: "/projects/opencode" }
 
 const servers: SettingsSearchServer[] = [
   { key: "local", name: "Local server", connected: true, projects: [project] },

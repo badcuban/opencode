@@ -11,7 +11,6 @@ import { homeProjectDirectories } from "@/shell/layout/helpers"
 import type { LocalProject } from "@/shell/state/layout"
 import { useDirectoryPicker } from "@/workspaces/selection/picker"
 import { addProjects } from "@/home/projects/add"
-import { settingsProjects } from "../servers/inventory"
 import { SettingsSearchEmpty } from "../search-empty"
 import { SettingsSearchField } from "../search-field"
 import { SettingsProjectRow } from "./project-row"
@@ -28,7 +27,7 @@ export const SettingsProjects: Component<{
   const pickDirectory = useDirectoryPicker()
   const [store, setStore] = createStore({ filter: "" })
   const context = createMemo(() => global.ensureServerCtx(props.server))
-  const projects = createMemo(() => settingsProjects(context()))
+  const projects = createMemo(() => context().projects.list())
   const searchable = createMemo(() => projects().length > 7)
 
   const filtered = createMemo(() => {
@@ -48,18 +47,10 @@ export const SettingsProjects: Component<{
       multiple: true,
       onSelect: (result) => {
         const directories = homeProjectDirectories(result)
-        const directory = addProjects(context(), directories)
 
-        if (!directory) return
-
-        if (directories.length > 1) return
-
-        const project = context()
-          .projects.list()
-          .find((item) => item.worktree === directory)
-
-        if (!project) return
-        props.onOpenProject(project)
+        void addProjects(context(), directories).then((project) => {
+          if (project && directories.length === 1) props.onOpenProject(project)
+        })
       },
     })
 

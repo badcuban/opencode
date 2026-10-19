@@ -64,8 +64,12 @@ export interface MockServerConfig {
   configEntries?: unknown[]
   directory: string
   project: unknown
-  // Replaces the `/api/project` inventory, which defaults to `[project]`.
+  // Replaces the `/api/project` inventory, which defaults to `[project]`. A location inside a listed project
+  // resolves to that project; any other location resolves to `project`.
   projects?: Resolvable<unknown[]>
+  // Runs on GET /api/location for a named directory before it answers, as the server registers the project of a
+  // directory it resolves.
+  onLocationGet?: (directory: string) => void
   sessions: MockSession[]
   pageMessages: (
     sessionId: string,
@@ -991,7 +995,14 @@ function mockHandlers(
         },
         // Discovery against a static inventory changes nothing, and the app refreshes whenever worktree settings open.
         worktreeRefresh: () => noContent,
-        location: (ctx) => Effect.sync(() => location(config, requestDirectory(config, ctx.request))),
+        location: (ctx) =>
+          Effect.sync(() => {
+            const requested = new URL(ctx.request.url, "http://localhost").searchParams.get("location[directory]")
+
+            if (requested) config.onLocationGet?.(requested)
+
+            return location(config, requested || config.directory)
+          }),
         permissionRequests: () =>
           Effect.suspend(() =>
             config.permissionListFailures?.()
@@ -1409,8 +1420,19 @@ function mockHandlers(
   )
 }
 
-// The requested workspace (directory) inside the configured project.
+// The requested workspace (directory) inside its listed project, else inside the configured project.
 function location(config: MockServerConfig, directory = config.directory) {
+  const listed = (config.projects ? resolve(config.projects) : [])
+    .flatMap((item) => Option.toArray(decodeProject(item)))
+    .find((item) =>
+      [item.canonical ?? item.worktree, ...(item.sandboxes ?? [])].some(
+        (root) => root !== undefined && (directory === root || directory.startsWith(`${root}/`)),
+      ),
+    )
+  const root = listed ? (listed.canonical ?? listed.worktree) : undefined
+
+  if (listed && root) return { directory, project: { id: listed.id, directory: root, canonical: root } }
+
   return {
     directory,
     project: { id: projectSeed(config)?.id, directory: config.directory, canonical: config.directory },

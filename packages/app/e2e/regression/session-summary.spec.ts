@@ -572,7 +572,6 @@ test("multiple desktop connections show the session's server name", async ({ pag
       { url: SERVER, name: "Design server" },
       { url: "http://secondary.test", name: "Other server" },
     ],
-    projects: { local: [{ worktree: fixture.directory, expanded: true }] },
   })
   await page.goto(sessionHref(fixture.targetID))
   await page.getByRole("button", { name: "Session details", exact: true }).click()

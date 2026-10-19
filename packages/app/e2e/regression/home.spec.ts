@@ -1,8 +1,9 @@
+import type { OpenCodeEvent } from "@opencode/client/promise"
 import { expect, test, type Page } from "@playwright/test"
-import { expectPath, holdRoute, NO_PROVIDER, project, REMOTE_SERVER, seed, sessionHref } from "../utils/app"
+import { expectPath, holdRoute, NO_PROVIDER, project, REMOTE_SERVER, seed, sessionHref, T0 } from "../utils/app"
 import { mockOpenCodeServer } from "../utils/mock-server"
 import { fixture, mockStressTimeline } from "../utils/session-fixture"
-import { mockRemoteServer } from "../utils/workspace"
+import { mockRemoteServer, newSessionLocation } from "../utils/workspace"
 import { APP_READY_TIMEOUT, expectAppVisible } from "../utils/waits"
 
 test.use({ serviceWorkers: "block" })
@@ -12,10 +13,7 @@ const row = (page: Page, title: string) =>
 
 async function openHome(page: Page, input: Parameters<typeof mockStressTimeline>[1] = {}) {
   await mockStressTimeline(page, input)
-  await seed(page, {
-    projects: { local: [{ worktree: fixture.directory, expanded: true }] },
-    lastProject: { local: fixture.directory },
-  })
+  await seed(page, { usedProjects: { local: [fixture.project.id] } })
   await page.goto("/")
 }
 
@@ -81,8 +79,6 @@ test("the session context menu renames, exports, and deletes a Home session", as
 test("the Home shortcut focuses session search, and the Home button leaves focus alone", async ({ page }) => {
   await mockStressTimeline(page)
   await seed(page, {
-    projects: { local: [{ worktree: fixture.directory, expanded: true }] },
-    lastProject: { local: fixture.directory },
     tabs: [fixture.sourceID],
   })
   await page.goto(sessionHref(fixture.sourceID))
@@ -103,6 +99,104 @@ test("the Home shortcut focuses session search, and the Home button leaves focus
   await page.getByRole("button", { name: "Home", exact: true }).click()
   await expect(search).toHaveValue("")
   await expect(search).not.toBeFocused()
+})
+
+const entry = (name: string, active: number, id = `proj_${name}`) =>
+  project({
+    id,
+    directory: `C:/OpenCode/${name}`,
+    name,
+    time: { created: T0, updated: T0, active: T0 + active },
+  })
+
+async function homeProjects(page: Page, projects: unknown[]) {
+  const directory = "C:/OpenCode/home"
+  const server = await mockOpenCodeServer(page, {
+    directory,
+    project: project({ id: "proj_home", directory }),
+    projects: () => projects,
+    provider: NO_PROVIDER,
+    sessions: [],
+    pageMessages: () => ({ items: [] }),
+  })
+
+  return { server, rows: page.locator('[data-component="home-project-row"] [data-slot="home-row-label"]') }
+}
+
+test("Home lists the used server projects by recent activity, hides them, and lists them again once used", async ({
+  page,
+}) => {
+  // `recent` was first resolved under another ID, so one directory has two projects.
+  const listed = [entry("unused", 4), entry("recent", 3), entry("older", 2), entry("oldest", 1)]
+  listed.push(entry("recent", 0, "proj_recent_before_git"))
+  const view = await homeProjects(page, listed)
+  await seed(page, { usedProjects: { local: ["proj_recent_before_git", "proj_older", "proj_oldest"] } })
+  await page.goto("/")
+  await expect(view.rows).toHaveText(["recent", "older", "oldest"])
+
+  // Activity moves a project up and an archived project leaves; a project this client never used stays out.
+  const active = { ...listed[3]!, time: { ...listed[3]!.time, active: T0 + 5 } }
+  const archived = { ...listed[2]!, time: { ...listed[2]!.time, archived: T0 + 6 } }
+  const fresh = entry("fresh", 7)
+  listed.splice(0, listed.length, fresh, active, listed[0]!, listed[1]!, listed[4]!)
+  await view.server.push(
+    [active, archived, fresh].map((data, index) => ({
+      id: `evt_home_project_${index}`,
+      created: T0 + index,
+      type: "project.updated",
+      data,
+    })) as OpenCodeEvent[],
+  )
+  await expect(view.rows).toHaveText(["oldest", "recent"])
+
+  const recent = page.locator('[data-component="home-project-row"]').filter({ hasText: "recent" })
+  await recent.locator("..").getByRole("button", { name: "More options", exact: true }).click()
+  await page.getByRole("menuitem", { name: "Close", exact: true }).click()
+  await expect(view.rows).toHaveText(["oldest"])
+
+  // The location dialog lists every server project once: used ones first, then the rest, each by recency.
+  await page
+    .locator('[data-component="home-project-row"]')
+    .filter({ hasText: "oldest" })
+    .locator("..")
+    .getByRole("button", { name: "New session", exact: true })
+    .click()
+  await newSessionLocation(page).click()
+  const options = page.getByRole("dialog").getByRole("option")
+  await expect(options.locator(".command-palette-title")).toHaveText([
+    "oldest",
+    "fresh",
+    "unused",
+    "recent",
+    "Add project",
+  ])
+  await options.filter({ hasText: "C:/OpenCode/recent" }).click()
+  await expect(newSessionLocation(page)).toContainText("recent")
+  await page.getByRole("button", { name: "Home", exact: true }).click()
+  await expect(view.rows).toHaveText(["oldest", "recent"])
+})
+
+test("Home migrates the directories an older build listed to the server's current projects", async ({ page }) => {
+  const view = await homeProjects(page, [
+    entry("api", 3),
+    entry("web", 2),
+    entry("api", 1, "proj_api_before_remote"),
+    entry("docs", 0),
+  ])
+  await seed(page, {
+    legacyProjects: {
+      local: [
+        { worktree: "C:/OpenCode/api", expanded: true },
+        { worktree: "C:/OpenCode/web/packages/app" },
+        { worktree: "C:/OpenCode/gone" },
+      ],
+    },
+  })
+  await page.goto("/")
+  await expect(view.rows).toHaveText(["api", "web"])
+  await expect
+    .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem("opencode.global.dat:server") ?? "{}")))
+    .toMatchObject({ usedProjectIDs: { local: ["proj_api", "proj_web"] }, projects: {} })
 })
 
 test("Home shows loaded sessions before the location request resolves", async ({ page }) => {
@@ -217,7 +311,6 @@ const worktree =
 for (const state of [
   { name: "local", directory: fixture.directory, icon: "monitor" },
   { name: "worktree", directory: worktree, icon: "outline-worktree" },
-  { name: "closed worktree", directory: recovery, icon: "outline-worktree", recovery: "closed" },
   { name: "unopened worktree", directory: recovery, icon: "outline-worktree", recovery: "unopened" },
 ]) {
   test(`the session project menu opens settings and Home for a ${state.name} project`, async ({ page }) => {
@@ -239,25 +332,10 @@ for (const state of [
         state.recovery && input.sessionID === fixture.targetID ? messages.promise : Promise.resolve(),
     })
 
-    // An unopened project has no stored project list or tabs.
-    if (state.recovery !== "unopened")
-      await seed(page, {
-        projects: { local: [{ worktree: fixture.directory, expanded: true }] },
-        lastProject: { local: fixture.directory },
-        tabs: [fixture.sourceID, fixture.targetID],
-      })
+    // An unopened project has no stored tabs.
+    if (state.recovery !== "unopened") await seed(page, { tabs: [fixture.sourceID, fixture.targetID] })
     const name = fixture.project.name
-
-    if (state.recovery === "closed") {
-      await page.goto("/")
-      const project = page.locator('[data-component="home-project-row"]').filter({ hasText: name })
-      await project.locator("..").getByRole("button", { name: "More options", exact: true }).click()
-      await page.getByRole("menuitem", { name: "Close", exact: true }).click()
-      await expect(project).toHaveCount(0)
-      await page.locator(`[data-titlebar-tab-link][href="${sessionHref(fixture.targetID)}"]`).click()
-    }
-
-    if (state.recovery !== "closed") await page.goto(sessionHref(fixture.targetID))
+    await page.goto(sessionHref(fixture.targetID))
 
     const header = page.locator("[data-session-title]")
     const trigger = header.getByRole("button", { name, exact: true })
@@ -312,7 +390,7 @@ for (const state of [
 
 test("the project menu path arrow has a glyph when the page has an older icon sprite", async ({ page }) => {
   await mockStressTimeline(page)
-  await seed(page, { projects: { local: [{ worktree: fixture.directory, expanded: true }] }, tabs: [fixture.targetID] })
+  await seed(page, { tabs: [fixture.targetID] })
   // A page cached before the arrow icon shipped carries a sprite without it.
   await page.route(
     (url) => url.pathname === sessionHref(fixture.targetID),

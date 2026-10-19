@@ -9,7 +9,7 @@ const rows = 2
 
 async function openStress(page: Page, extra: SeedInput = {}) {
   await seed(page, {
-    projects: { local: [{ worktree: fixture.directory, expanded: true }] },
+    usedProjects: { local: [fixture.project.id] },
     tabs: [fixture.sourceID, fixture.targetID],
     ...extra,
   })
@@ -22,7 +22,6 @@ for (const position of ["top", "bottom"] as const) {
     await page.setViewportSize({ width: 390, height: 844 })
     await mockStressTimeline(page, { fileList: () => [], pty: {} })
     await openStress(page, {
-      lastProject: { local: fixture.directory },
       settings: { general: { mobileTitlebarPosition: position } },
     })
     await page.goto(sessionHref(fixture.targetID))
@@ -236,7 +235,7 @@ test("the summary's changes row switches the view and keeps the side tabs", asyn
     fileList: (path) => (path ? [] : [fileNode(fixture.directory, "README.md")]),
     fileContent: (path) => ({ type: "text", content: `contents:${path}` }),
   })
-  await openStress(page, { lastProject: { local: fixture.directory } })
+  await openStress(page)
   await page.goto(sessionHref(fixture.targetID))
 
   // One click previews the file in place of the Open file tab.
@@ -293,7 +292,7 @@ test("a narrow-screen palette pick keeps the view, and the side region shows the
     findFiles: ({ query }) => ("README.md".includes(query) ? [fileNode(fixture.directory, "README.md")] : []),
     pty: {},
   })
-  await openStress(page, { lastProject: { local: fixture.directory } })
+  await openStress(page)
   await page.goto(sessionHref(fixture.targetID))
 
   const tabs = page.getByRole("tablist", { name: "Session view", exact: true })

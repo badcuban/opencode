@@ -27,18 +27,13 @@ import { parseVoiceDelegation } from "./voice-delegation"
 import { useCommand } from "@/shell/commands/command"
 import { SessionAncestorTrail, SessionProjectMenu, SessionTitleHeader } from "../session-identity-header"
 import { SessionHeaderSpacer } from "@/session/header/session-header"
-import { SessionRunningMenu } from "@/session/header/session-running-menu"
+import { SessionWorkingIndicator } from "@/session/header/session-working-indicator"
 
 type BlockingTask = { type: "shell" | "subagent"; partID: string; id?: string; label?: string }
 
 type SessionBackground = {
   blocking: Accessor<BlockingTask[]>
   tasks: Accessor<readonly BackgroundTask[]>
-  running: {
-    sessionID: Accessor<string | undefined>
-    blocking: Accessor<BlockingTask[]>
-    tasks: Accessor<readonly BackgroundTask[]>
-  }
   move: () => Promise<void>
 }
 
@@ -87,6 +82,7 @@ type MessageTimelineProps = {
   setContentRef: (el: HTMLDivElement) => void
   anchor: (id: string) => string
   setRevealMessage?: (fn: (id: string, partID?: string) => void) => void
+  setRevealPart?: (fn: (target: string) => boolean) => void
   setScrollToEnd?: (fn: (behavior?: ScrollBehavior) => void) => void
   reveal?: { target: () => string | undefined; done: () => void }
   search?: JSX.Element
@@ -141,7 +137,7 @@ function MessageTimelineView(
     const projects = server.ctx.sync.data.project
 
     return session
-      ? server.ctx.projects.detailsForSession(session)
+      ? server.ctx.projects.forSession(session)
       : projects.find((item) => containsDirectory(item.worktree, sessionDirectory()))
   })
 
@@ -232,6 +228,7 @@ function MessageTimelineView(
       )
     },
     setRevealMessage: props.setRevealMessage,
+    setRevealPart: props.setRevealPart,
     setScrollToEnd: props.setScrollToEnd,
     reveal: props.reveal,
   })
@@ -431,17 +428,6 @@ function MessageTimelineView(
     </Show>
   )
 
-  const runningMenu = (title?: string) => (
-    <SessionRunningMenu
-      sessionID={sessionID()}
-      owner={props.background.running.sessionID()}
-      blocking={props.background.running.blocking()}
-      tasks={props.background.running.tasks()}
-      onReveal={virtualized.revealPart}
-      title={title}
-    />
-  )
-
   return (
     <VirtualizedTimeline
       workspaceSession={workspaceSession}
@@ -481,7 +467,20 @@ function MessageTimelineView(
                       />
                     )}
                   </Show>
-                  <Show when={parentID()}>{runningMenu(childTitle())}</Show>
+                  <Show when={parentID() && childTitle()}>
+                    {(value) => (
+                      <>
+                        <SessionWorkingIndicator sessionID={sessionID()} />
+                        <h1
+                          data-slot="session-title-child"
+                          dir="auto"
+                          class="max-w-[45%] shrink-0 w-fit truncate rounded-[6px] px-1 py-1 text-[13px] font-[530] leading-4 tracking-[-0.04px] text-v2-text-text-base"
+                        >
+                          {value()}
+                        </h1>
+                      </>
+                    )}
+                  </Show>
                   <Show when={!parentID() && (childTitle() || title.editing)}>
                     <Show
                       when={title.editing}
@@ -532,7 +531,6 @@ function MessageTimelineView(
                       />
                     </Show>
                   </Show>
-                  <Show when={!parentID()}>{runningMenu()}</Show>
                   <Show when={!parentID() && sessionID()} keyed>
                     {(id) => (
                       <Menu

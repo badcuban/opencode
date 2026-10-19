@@ -10,7 +10,7 @@ import { usePlatform } from "@/runtime/platform/platform"
 import { useGlobal } from "@/runtime/server/runtime"
 import { ProjectIcon } from "@/shell/layout/project-icon"
 import { useCommand } from "@/shell/commands/command"
-import { settingsProjects, useSettingsServers } from "./servers/inventory"
+import { useSettingsServers } from "./servers/inventory"
 import { useSettingsSurface } from "./surface"
 import { rankSettings, type SettingsSearchResult } from "./search-results"
 import { settingsSearchIndex } from "./search-index"
@@ -69,7 +69,7 @@ export function SettingsSearch() {
       return {
         ...server,
         connected: context?.sdk.connection.status() === "connected",
-        projects: context ? settingsProjects(context) : [],
+        projects: context ? context.projects.list() : [],
       }
     }),
   )

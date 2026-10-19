@@ -732,7 +732,7 @@ export function createExtensionAttachment(apis: HostApis) {
 
             if (!directory) return
             const key = ServerConnection.key(server)
-            servers.projects.forServer(key).open(directory)
+            void global.ensureServerCtx(server).projects.add(directory)
             void tabs.newDraft({ server: key, directory })
           },
         }),

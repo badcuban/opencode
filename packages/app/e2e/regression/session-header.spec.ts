@@ -11,8 +11,6 @@ for (const direction of ["ltr", "rtl"] as const) {
   test(`session header groups controls and exposes session details in ${direction}`, async ({ page }) => {
     await mockStressTimeline(page)
     await seed(page, {
-      projects: { local: [{ worktree: fixture.directory, expanded: true }] },
-      lastProject: { local: fixture.directory },
       tabs: [fixture.sourceID, fixture.targetID],
       settings: { general: { showStatus: true } },
     })

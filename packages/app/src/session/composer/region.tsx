@@ -15,6 +15,7 @@ import { useLanguage } from "@/runtime/i18n/language"
 import { useData } from "@/runtime/server/current"
 import { useServerSDK } from "@/runtime/server/client"
 import { showToast } from "@/shell/notifications/toast"
+import { errorMessage } from "@/shell/layout/helpers"
 import { useLocal } from "@/providers/models/selection"
 import { usePlatform } from "@/runtime/platform/platform"
 import { useWorkspaceLocation } from "@/workspaces/location"
@@ -295,9 +296,12 @@ export function ActiveSessionComposerRegion(props: {
   session: SessionModel
   model: SessionComposerController
   suggestionBoundary: () => HTMLElement | undefined
+  onReveal: (target: string) => void
 }) {
   const location = useWorkspaceLocation()
   const data = useData()
+  const server = useServerSDK()
+  const language = useLanguage()
   const openRoute = useOpenSessionRoute()
 
   // Only the server's LocationNotFoundError for the session's own Location replaces the composer.
@@ -351,8 +355,26 @@ export function ActiveSessionComposerRegion(props: {
 
     if (!current) return
 
-    // Shells and starting subagent calls live in this timeline, which reveals them once opened.
-    openRoute(current, item.sessionID ?? current, item.sessionID ? undefined : item.target)
+    if (item.sessionID) return openRoute(current, item.sessionID)
+
+    // Shells and starting subagent calls live in this timeline.
+    props.onReveal(item.target)
+  }
+
+  const stop = (item: SessionActivityItem) => {
+    const request = item.sessionID
+      ? server.api.session.interrupt({ sessionID: item.sessionID })
+      : server.api.shell.remove({
+          id: item.target,
+          location: { directory: data.shell.get(item.target)?.location.directory },
+        })
+
+    void request.catch((error) =>
+      showToast({
+        title: language.t("common.requestFailed"),
+        description: errorMessage(error, language.t("common.requestFailed")),
+      }),
+    )
   }
 
   return (
@@ -364,7 +386,7 @@ export function ActiveSessionComposerRegion(props: {
           keyed
           fallback={
             <div class="relative">
-              <SessionActivityChips subagents={subagents()} shells={shells()} onOpen={open} />
+              <SessionActivityChips subagents={subagents()} shells={shells()} onOpen={open} onStop={stop} />
               <SessionQueuePanel queue={props.model.queue} />
               <div class="relative z-10">
                 <Composer

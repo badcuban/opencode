@@ -94,6 +94,26 @@
     height: 15px;
   }
 
+  /* A trailing stop button ends 4px in, mirroring the glyph's inset at the start. */
+  [data-component="menu-v2-item"][data-stoppable] {
+    padding-inline-end: 4px;
+  }
+
+  /* Hidden rather than removed, so revealing it on hover does not resize the panel. */
+  [data-slot="session-activity-stop"] {
+    visibility: hidden;
+  }
+
+  [data-component="menu-v2-item"]:is(:hover, [data-highlighted]) [data-slot="session-activity-stop"] {
+    visibility: visible;
+  }
+
+  @media (hover: none) {
+    [data-slot="session-activity-stop"] {
+      visibility: visible;
+    }
+  }
+
   [data-slot="menu-v2-group-label"] {
     height: 24px;
     padding-inline: 4px;

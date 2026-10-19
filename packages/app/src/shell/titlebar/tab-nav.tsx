@@ -68,7 +68,7 @@ export function TabNavItem(props: {
 
     if (!props.fallbackDirectory) return
 
-    return serverCtx()?.projects.resolve({ worktree: props.fallbackDirectory, expanded: false })
+    return serverCtx()?.projects.forDirectory(props.fallbackDirectory) ?? { worktree: props.fallbackDirectory }
   })
 
   const title = createMemo(() => {

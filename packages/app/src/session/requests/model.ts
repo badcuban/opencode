@@ -92,17 +92,8 @@ export function createSessionRequestModel() {
     return !!id && !data.session.get(id)?.parentID
   }
 
-  // Inside a subagent, running work is the parent's, so the header lists its siblings.
-  const owner = createMemo(() => {
-    const id = params.id
-
-    if (!id) return
-
-    return data.session.get(id)?.parentID ?? id
-  })
-
   const running = createSessionBackground({
-    sessionID: owner,
+    sessionID: () => params.id,
     messages: data.session.message.list,
     sessions: data.session.list,
     status: data.session.status,
@@ -166,7 +157,6 @@ export function createSessionRequestModel() {
     background: {
       blocking,
       tasks,
-      running: { sessionID: owner, blocking: running.blocking, tasks: running.tasks },
       move: moveToBackground,
     },
     decide,

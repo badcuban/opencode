@@ -229,83 +229,14 @@ function displayDirectory(path: string | undefined) {
 
 import { resolveFileDiff } from "../components/session-diff"
 
-const agentTones = new Map([
-  ["ask", "var(--icon-agent-ask-base)"],
-  ["build", "var(--icon-agent-build-base)"],
-  ["docs", "var(--icon-agent-docs-base)"],
-  ["plan", "var(--icon-agent-plan-base)"],
-])
-
-const v2AgentTones = new Map([
-  ["build", "var(--v2-agent-build-solid)"],
-  ["explore", "var(--v2-agent-explore-solid)"],
-  ["plan", "var(--v2-agent-plan-solid)"],
-  ["review", "var(--v2-agent-review-solid)"],
-  ["writer", "var(--v2-agent-writer-solid)"],
-])
-
-const agentThemeColors = new Map([
-  ["primary", "var(--text-interactive-base)"],
-  ["secondary", "var(--text-base)"],
-  ["accent", "var(--icon-info-base)"],
-  ["success", "var(--icon-success-base)"],
-  ["warning", "var(--icon-warning-base)"],
-  ["error", "var(--icon-critical-base)"],
-  ["info", "var(--icon-info-base)"],
-])
-
-const v2AgentThemeColors = new Map([
-  ["primary", "var(--v2-text-text-accent)"],
-  ["secondary", "var(--v2-text-text-muted)"],
-  ["accent", "var(--v2-icon-icon-accent)"],
-  ["success", "var(--v2-state-fg-success)"],
-  ["warning", "var(--v2-state-fg-warning)"],
-  ["error", "var(--v2-state-fg-danger)"],
-  ["info", "var(--v2-state-fg-info)"],
-])
-
-const agentPalette = [
-  "var(--icon-agent-ask-base)",
-  "var(--icon-agent-build-base)",
-  "var(--icon-agent-docs-base)",
-  "var(--icon-agent-plan-base)",
-  "var(--syntax-info)",
-  "var(--syntax-success)",
-  "var(--syntax-warning)",
-  "var(--syntax-property)",
-  "var(--syntax-constant)",
-  "var(--text-diff-add-base)",
-  "var(--text-diff-delete-base)",
-  "var(--icon-warning-base)",
-]
-
-function tone(name: string) {
-  let hash = 0
-
-  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
-
-  return agentPalette[hash % agentPalette.length]
-}
-
-function taskAgent(raw: string | undefined, list?: readonly { name: string; color?: string }[]) {
-  if (!raw) return {}
+function taskAgentName(raw: string | undefined, list?: readonly { name: string }[]) {
+  if (!raw) return undefined
   const key = raw.toLowerCase()
-  const item = list?.find((entry) => entry.name === raw || entry.name.toLowerCase() === key)
-  const v2Tone = item?.color ? undefined : v2AgentTones.get(key)
-  const color = agentColor(item?.color, agentThemeColors) ?? agentTones.get(key) ?? tone(key)
-  const v2Color = agentColor(item?.color, v2AgentThemeColors) ?? v2Tone ?? color
 
-  return {
-    name: item?.name ?? `${raw[0].toUpperCase()}${raw.slice(1)}`,
-    color,
-    v2Color,
-  }
-}
-
-function agentColor(value: string | undefined, themeColors: ReadonlyMap<string, string>) {
-  if (!value) return undefined
-
-  return themeColors.get(value) ?? value
+  return (
+    list?.find((entry) => entry.name === raw || entry.name.toLowerCase() === key)?.name ??
+    `${raw[0].toUpperCase()}${raw.slice(1)}`
+  )
 }
 
 const webSearchProviderNames = new Map([
@@ -1758,10 +1689,7 @@ ToolRegistry.register({
       () => metadata().sessionID || taskSession(input().description, data.sessionID, data.store.session),
     )
 
-    const agent = createMemo(() => taskAgent(input().agent, data.store.agent))
-    const title = createMemo(() => agent().name ?? i18n.t("ui.tool.agent.default"))
-    const tone = createMemo(() => agent().color)
-    const v2Tone = createMemo(() => agent().v2Color)
+    const title = createMemo(() => taskAgentName(input().agent, data.store.agent) ?? i18n.t("ui.tool.agent.default"))
 
     const background = createMemo(() => {
       return metadata().background === true || (props.status === "completed" && metadata().status === "running")
@@ -1813,29 +1741,12 @@ ToolRegistry.register({
     }
 
     const trigger = () => (
-      <div
-        data-component="task-tool-card"
-        style={{
-          "--task-agent-color": v2Tone(),
-          "--task-agent-color-fallback": tone(),
-        }}
-      >
+      <div data-component="task-tool-card">
         <div data-component="task-tool-surface">
           <div data-slot="basic-tool-tool-info-structured">
             <div data-slot="basic-tool-tool-info-main">
-              <Show
-                when={running()}
-                fallback={
-                  <span data-component="task-tool-icon">
-                    <Icon name="subagent" size="normal" />
-                  </span>
-                }
-              >
-                <span data-component="task-tool-spinner" style={{ color: tone() ?? "var(--icon-interactive-base)" }}>
-                  <SessionProgressIndicatorV2
-                    style={{ color: v2Tone() ?? "light-dark(var(--v2-text-text-base), #ffffff)" }}
-                  />
-                </span>
+              <Show when={running()}>
+                <SessionProgressIndicatorV2 />
               </Show>
               <span data-component="task-tool-title">{title()}</span>
               <Show when={subtitle()}>
@@ -1871,10 +1782,10 @@ ToolRegistry.register({
       >
         <div
           data-component="task-tool-delegating"
-          class="flex h-9 w-fit max-w-full items-center gap-2 rounded-[8px] bg-v2-background-bg-layer-02 p-2.5 text-[13px] font-[530] leading-text-compact tracking-[-0.04px]"
+          class="flex h-9 w-fit max-w-full items-center gap-2 rounded-[8px] bg-v2-background-bg-layer-02 px-3 text-[13px] font-[530] leading-text-compact tracking-[-0.04px] text-v2-text-text-base"
         >
-          <Icon name="subagent" size="normal" class="shrink-0 text-v2-icon-icon-faint" />
-          <TextShimmer text={i18n.t("ui.tool.agent.delegating")} class="min-w-0 truncate" />
+          <SessionProgressIndicatorV2 />
+          <span class="min-w-0 truncate">{i18n.t("ui.tool.agent.delegating")}</span>
         </div>
       </Show>
     )
