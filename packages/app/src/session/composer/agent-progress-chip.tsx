@@ -148,7 +148,7 @@ function AgentProgressBody(props: AgentProgressProps & { surface: (element: HTML
 
     if (value.needsYou) return "waiting"
 
-    if (props.items.some((item) => item.state === "starting") && !value.running) return "handoff"
+    if (running().length && running().every((item) => item.state === "starting")) return "handoff"
 
     if (value.running) return "thinking"
 
@@ -227,10 +227,12 @@ function AgentProgressBody(props: AgentProgressProps & { surface: (element: HTML
     props.onOpen(item)
   }
 
-  // Closing returns focus to the chip, the panel's own bottom row.
+  // Closing from inside the panel returns focus to the chip, its own bottom row.
   const close = () => {
+    const inside = !!refs.surface?.contains(document.activeElement)
     setOpen(false)
-    refs.chip?.focus()
+
+    if (inside) refs.chip?.focus()
   }
 
   createEffect(() => {
